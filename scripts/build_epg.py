@@ -59,9 +59,11 @@ def main():
     if not tvg_ids:
         fail("No se encontraron tvg-id en el m3u, revisa la URL.")
 
-    matched = {}
+    # Mapa insensible a mayúsculas: "antena3.es" -> "antena3.es" (casing original del m3u)
+    tvg_ids_lower = {tid.lower(): tid for tid in tvg_ids}
+
     programme_elements = []
-    channel_elements = {}
+    channel_elements = {}  # keyed por el tvg-id ORIGINAL del m3u (casing preservado)
 
     for src_url in EPG_SOURCE_URLS:
         print(f"2) Descargando fuente EPG: {src_url}")
@@ -83,13 +85,17 @@ def main():
             continue
 
         for ch in root.findall("channel"):
-            cid = ch.get("id")
-            if cid in tvg_ids and cid not in channel_elements:
-                channel_elements[cid] = ch
-                matched[cid] = True
+            cid = ch.get("id") or ""
+            original = tvg_ids_lower.get(cid.lower())
+            if original and original not in channel_elements:
+                ch.set("id", original)  # reescribe el id con el casing de tu m3u
+                channel_elements[original] = ch
 
         for pr in root.findall("programme"):
-            if pr.get("channel") in tvg_ids:
+            cid = pr.get("channel") or ""
+            original = tvg_ids_lower.get(cid.lower())
+            if original:
+                pr.set("channel", original)  # mismo casing que el canal reescrito
                 programme_elements.append(pr)
 
     print(f"3) Canales con guía encontrada: {len(channel_elements)} / {len(tvg_ids)}")
