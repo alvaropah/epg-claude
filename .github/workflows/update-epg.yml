@@ -1,0 +1,39 @@
+name: Actualizar EPG
+
+on:
+  schedule:
+    # Cada 6 horas (UTC). Ajusta si quieres más/menos frecuencia.
+    - cron: "0 */6 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build-epg:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Generar EPG filtrado
+        env:
+          M3U_URL: ${{ secrets.M3U_URL }}
+        run: python scripts/build_epg.py
+
+      - name: Commit y push si hay cambios
+        run: |
+          git config user.name "epg-bot"
+          git config user.email "epg-bot@users.noreply.github.com"
+          git add epg.xml.gz
+          if git diff --staged --quiet; then
+            echo "Sin cambios en el EPG."
+          else
+            git commit -m "Actualizar EPG $(date -u +'%Y-%m-%d %H:%M UTC')"
+            git push
+          fi
